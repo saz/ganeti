@@ -67,7 +67,7 @@ from ganeti.cmdlib.instance_utils import BuildInstanceHookEnvByObject, \
   UpdateMetadata, CheckForConflictingIp, \
   PrepareContainerMods, ComputeInstanceCommunicationNIC, \
   ApplyContainerMods, ComputeIPolicyInstanceSpecViolation, \
-  CheckNodesPhysicalCPUs
+  CheckNodesPhysicalCPUs, CheckNICMTUMode
 import ganeti.masterd.instance
 
 
@@ -162,7 +162,10 @@ class LUInstanceSetParams(LogicalUnit):
       # 'ext' template and thus do not ForceDictType
       if key_types:
         utils.ForceDictType(params, (key_types if op != constants.DDM_ATTACH
-                                     else key_types_attach))
+                                     else key_types_attach),
+                            allowed_values={constants.NIC_MTU:
+                                            [constants.VALUE_NONE]}
+                            if kind == "NIC" else None)
 
       if op not in (constants.DDM_ADD, constants.DDM_ATTACH,
                     constants.DDM_MODIFY, constants.DDM_REMOVE,
@@ -512,6 +515,10 @@ class LUInstanceSetParams(LogicalUnit):
     update_params_dict = dict([(key, params[key])
                                for key in constants.NICS_PARAMETERS
                                if key in params])
+    clear_mtu = (update_params_dict.get(constants.NIC_MTU) ==
+                 constants.VALUE_NONE)
+    if clear_mtu:
+      del update_params_dict[constants.NIC_MTU]
 
     req_link = update_params_dict.get(constants.NIC_LINK, None)
     req_mode = update_params_dict.get(constants.NIC_MODE, None)
@@ -531,9 +538,20 @@ class LUInstanceSetParams(LogicalUnit):
         raise errors.OpPrereqError("No netparams found for the network"
                                    " %s, probably not connected" %
                                    new_net_obj.name, errors.ECODE_INVAL)
+      mtu = (None if clear_mtu else
+             update_params_dict.get(constants.NIC_MTU,
+                                    old_params.get(constants.NIC_MTU)))
       new_params = dict(netparams)
+      new_params.pop(constants.NIC_MTU, None)
+      if mtu is not None:
+        new_params[constants.NIC_MTU] = mtu
+      if mtu is None and not clear_mtu:
+        mtu = netparams.get(constants.NIC_MTU)
     else:
       new_params = GetUpdatedParams(old_params, update_params_dict)
+      if clear_mtu:
+        new_params.pop(constants.NIC_MTU, None)
+      mtu = new_params.get(constants.NIC_MTU)
 
     utils.ForceDictType(new_params, constants.NICS_PARAMETER_TYPES)
 
@@ -541,6 +559,8 @@ class LUInstanceSetParams(LogicalUnit):
     objects.NIC.CheckParameterSyntax(new_filled_params)
 
     new_mode = new_filled_params[constants.NIC_MODE]
+    CheckNICMTUMode(new_mode, mtu)
+
     if new_mode == constants.NIC_MODE_BRIDGED:
       bridge = new_filled_params[constants.NIC_LINK]
       msg = self.rpc.call_bridges_exist(pnode_uuid, [bridge]).fail_msg

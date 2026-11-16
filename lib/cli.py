@@ -1291,7 +1291,9 @@ def ParseNicOption(optvalue):
       raise errors.OpPrereqError("Invalid nic/%d value: expected dict,"
                                  " got %s" % (nidx, ndict), errors.ECODE_INVAL)
 
-    utils.ForceDictType(ndict, constants.INIC_PARAMS_TYPES)
+    utils.ForceDictType(ndict, constants.INIC_PARAMS_TYPES,
+                        allowed_values={constants.INIC_MTU:
+                                        [constants.VALUE_NONE]})
 
     nics[nidx] = ndict
 

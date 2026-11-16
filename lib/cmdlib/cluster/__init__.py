@@ -1315,8 +1315,14 @@ class LUClusterSetParams(LogicalUnit):
     self._CheckIpolicy(cluster, enabled_disk_templates)
 
     if self.op.nicparams:
-      utils.ForceDictType(self.op.nicparams, constants.NICS_PARAMETER_TYPES)
-      self.new_nicparams = cluster.SimpleFillNIC(self.op.nicparams)
+      nicparams = dict(self.op.nicparams)
+      clear_mtu = nicparams.get(constants.NIC_MTU) == constants.VALUE_NONE
+      if clear_mtu:
+        del nicparams[constants.NIC_MTU]
+      utils.ForceDictType(nicparams, constants.NICS_PARAMETER_TYPES)
+      self.new_nicparams = cluster.SimpleFillNIC(nicparams)
+      if clear_mtu:
+        self.new_nicparams.pop(constants.NIC_MTU, None)
       objects.NIC.CheckParameterSyntax(self.new_nicparams)
       nic_errors = []
 

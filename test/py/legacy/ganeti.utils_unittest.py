@@ -180,6 +180,7 @@ class TestForceDictType(unittest.TestCase):
     "c": constants.VTYPE_STRING,
     "d": constants.VTYPE_SIZE,
     "e": constants.VTYPE_MAYBE_STRING,
+    "f": constants.VTYPE_INT_OR_AUTO,
     }
 
   def _fdt(self, dict, allowed_values=None):
@@ -208,6 +209,11 @@ class TestForceDictType(unittest.TestCase):
     self.assertEqual(self._fdt({"e": "Hello World", }), {"e": "Hello World", })
     self.assertEqual(self._fdt({"e": False, }), {"e": "", })
     self.assertEqual(self._fdt({"b": "hello", }, ["hello"]), {"b": "hello"})
+    self.assertEqual(self._fdt({"f": "auto"}), {"f": "auto"})
+    self.assertEqual(self._fdt({"f": "9000"}), {"f": 9000})
+    self.assertEqual(self._fdt({"f": "none"}, ["none"]), {"f": "none"})
+    self.assertEqual(self._fdt({"f": "none"}, {"f": ["none"]}),
+                     {"f": "none"})
 
   def testErrors(self):
     self.assertRaises(errors.TypeEnforcementError, self._fdt, {"a": "astring"})
@@ -215,6 +221,9 @@ class TestForceDictType(unittest.TestCase):
     self.assertRaises(errors.TypeEnforcementError, self._fdt, {"c": True})
     self.assertRaises(errors.TypeEnforcementError, self._fdt, {"d": "astring"})
     self.assertRaises(errors.TypeEnforcementError, self._fdt, {"d": "4 L"})
+    self.assertRaises(errors.TypeEnforcementError, self._fdt, {"f": "none"})
+    self.assertRaises(errors.TypeEnforcementError, self._fdt, {"a": "none"},
+                      {"f": ["none"]})
     self.assertRaises(errors.TypeEnforcementError, self._fdt, {"e": object(), })
     self.assertRaises(errors.TypeEnforcementError, self._fdt, {"e": [], })
     self.assertRaises(errors.TypeEnforcementError, self._fdt, {"x": None, })

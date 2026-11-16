@@ -1442,7 +1442,9 @@ def SetClusterParams(opts, args):
   utils.ForceDictType(beparams, constants.BES_PARAMETER_COMPAT)
 
   nicparams = opts.nicparams
-  utils.ForceDictType(nicparams, constants.NICS_PARAMETER_TYPES)
+  utils.ForceDictType(nicparams, constants.NICS_PARAMETER_TYPES,
+                      allowed_values={constants.NIC_MTU:
+                                      [constants.VALUE_NONE]})
 
   ndparams = opts.ndparams
   if ndparams is not None:

@@ -1209,6 +1209,13 @@ def ComputeFullBeParams(op, cluster):
   return cluster.SimpleFillBE(op.beparams)
 
 
+def CheckNICMTUMode(mode, mtu):
+  """Reject an MTU setting for non-bridged NICs."""
+  if mtu is not None and mode != constants.NIC_MODE_BRIDGED:
+    raise errors.OpPrereqError(
+      "NIC MTU can only be set for bridged NICs", errors.ECODE_INVAL)
+
+
 def ComputeNics(op, cluster, default_ip, cfg, ec_id):
   """Computes the nics.
 
@@ -1292,7 +1299,15 @@ def ComputeNics(op, cluster, default_ip, cfg, ec_id):
       nicparams[constants.NIC_LINK] = link
     if vlan:
       nicparams[constants.NIC_VLAN] = vlan
+    mtu = nic.get(constants.INIC_MTU)
+    if mtu == constants.VALUE_NONE:
+      mtu = None
+    if mtu is not None:
+      if net is None:
+        CheckNICMTUMode(nic_mode, mtu)
+      nicparams[constants.NIC_MTU] = mtu
 
+    utils.ForceDictType(nicparams, constants.NICS_PARAMETER_TYPES)
     check_params = cluster.SimpleFillNIC(nicparams)
     objects.NIC.CheckParameterSyntax(check_params)
     net_uuid = cfg.LookupNetwork(net)

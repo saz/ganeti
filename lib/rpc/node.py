@@ -851,11 +851,24 @@ class RpcRunner(_RpcClientBase,
     _generated_rpc.RpcClientDnsOnly.__init__(self)
     _generated_rpc.RpcClientDefault.__init__(self)
 
-  def _NicDict(self, _, nic):
+  def _FillNICParams(self, node, nic):
+    """Fill cluster defaults and the network MTU for a NIC."""
+    cluster = self._cfg.GetClusterInfo()
+    nicparams = cluster.SimpleFillNIC(nic.nicparams)
+    if node is not None and nic.network:
+      net_uuid = self._cfg.LookupNetwork(nic.network)
+      netparams = self._cfg.GetGroupNetParams(net_uuid, node)
+      if (netparams and constants.NIC_MTU in netparams and
+          constants.NIC_MTU not in nic.nicparams):
+        nicparams[constants.NIC_MTU] = netparams[constants.NIC_MTU]
+    return nicparams
+
+  def _NicDict(self, node, nic):
     """Convert the given nic to a dict and encapsulate netinfo
 
     """
     n = copy.deepcopy(nic)
+    n.nicparams = self._FillNICParams(node, nic)
     if n.network:
       net_uuid = self._cfg.LookupNetwork(n.network)
       if net_uuid:
@@ -866,7 +879,7 @@ class RpcRunner(_RpcClientBase,
   def _DeviceDict(self, _, devinstance):
     (device, instance) = devinstance
     if isinstance(device, objects.NIC):
-      return self._NicDict(None, device)
+      return self._NicDict(instance.primary_node, device)
     elif isinstance(device, objects.Disk):
       return self._SingleDiskDictDP(None, (device, instance))
 
@@ -904,16 +917,13 @@ class RpcRunner(_RpcClientBase,
       idict["osparams"].update(osp)
     disks = self._cfg.GetInstanceDisks(instance.uuid)
     idict["disks_info"] = self._DisksDictDP(node, (disks, instance))
-    for nic in idict["nics"]:
-      nic["nicparams"] = objects.FillDict(
-        cluster.nicparams[constants.PP_DEFAULT],
-        nic["nicparams"])
-      network = nic.get("network", None)
-      if network:
-        net_uuid = self._cfg.LookupNetwork(network)
+    for nic, nic_dict in zip(instance.nics, idict["nics"]):
+      nic_dict["nicparams"] = self._FillNICParams(node, nic)
+      if nic.network:
+        net_uuid = self._cfg.LookupNetwork(nic.network)
         if net_uuid:
           nobj = self._cfg.GetNetwork(net_uuid)
-          nic["netinfo"] = objects.Network.ToDict(nobj)
+          nic_dict["netinfo"] = objects.Network.ToDict(nobj)
     return idict
 
   def _InstDictHvpBepDp(self, node, instance_params):

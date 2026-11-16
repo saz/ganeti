@@ -71,7 +71,8 @@ from ganeti.cmdlib.instance_utils import \
   CheckHostnameSane, CheckOpportunisticLocking, \
   ComputeFullBeParams, ComputeNics, GetClusterDomainSecret, \
   CheckInstanceExistence, CreateInstanceAllocRequest, BuildInstanceHookEnv, \
-  NICListToTuple, CheckNicsBridgesExist, CheckCompressionTool
+  NICListToTuple, CheckNicsBridgesExist, CheckCompressionTool, \
+  CheckNICMTUMode
 import ganeti.masterd.instance
 
 
@@ -222,7 +223,11 @@ class LUInstanceCreate(LogicalUnit):
 
     # check nics' parameter names
     for nic in self.op.nics:
-      utils.ForceDictType(nic, constants.INIC_PARAMS_TYPES)
+      utils.ForceDictType(nic, constants.INIC_PARAMS_TYPES,
+                          allowed_values={constants.INIC_MTU:
+                                          [constants.VALUE_NONE]})
+      if nic.get(constants.INIC_MTU) == constants.VALUE_NONE:
+        del nic[constants.INIC_MTU]
     # check that NIC's parameters names are unique and valid
     utils.ValidateDeviceNames("NIC", self.op.nics)
 
@@ -925,7 +930,12 @@ class LUInstanceCreate(LogicalUnit):
                                      errors.ECODE_INVAL)
         self.LogInfo("NIC/%d inherits netparams %s" %
                      (idx, list(netparams.values())))
+        nic_mtu = nic.nicparams.get(constants.NIC_MTU)
         nic.nicparams = dict(netparams)
+        nic.nicparams.pop(constants.NIC_MTU, None)
+        if nic_mtu is not None:
+          nic.nicparams[constants.NIC_MTU] = nic_mtu
+        CheckNICMTUMode(nic.nicparams[constants.NIC_MODE], nic_mtu)
         if nic.ip is not None:
           if nic.ip.lower() == constants.NIC_IP_POOL:
             try:

@@ -472,7 +472,7 @@ class QmpConnection(QemuMonitorSocket):
 
   @_ensure_connection
   def HotAddNic(self, nic, devid, tapfds=None, vhostfds=None, features=None,
-                is_chrooted=False):
+                is_chrooted=False, host_mtu=None):
     """Hot-add a NIC
 
     First pass the tapfds, then netdev_add and then device_add
@@ -517,6 +517,8 @@ class QmpConnection(QemuMonitorSocket):
       "netdev": devid,
       "mac": nic.mac,
     }
+    if host_mtu is not None:
+      arguments["host_mtu"] = host_mtu
     if is_chrooted:
       # do not try to load a rom file when we are running qemu chrooted
       arguments.update({

@@ -31,6 +31,7 @@ import threading
 import socket
 import tempfile
 import time
+from types import SimpleNamespace
 from typing import Dict, List
 
 import pytest
@@ -554,3 +555,23 @@ class TestFilterHvinfo:
     qmp = QmpConnection("/tmp/nonexistent-test-socket")
     hvinfo = {"driver": "virtio-net-pci", "id": "x", "garbage": True}
     assert qmp._filter_hvinfo(hvinfo) == {"driver": "virtio-net-pci", "id": "x"}
+
+
+def test_hot_add_nic_sets_host_mtu(monkeypatch):
+  qmp = QmpConnection("/tmp/nonexistent-test-socket")
+  commands = []
+
+  def _record_command(command, args=None):
+    commands.append((command, args))
+
+  monkeypatch.setattr(qmp, "is_connected", lambda: True)
+  monkeypatch.setattr(qmp, "execute_qmp", _record_command)
+
+  nic = SimpleNamespace(mac="aa:00:00:00:00:01", hvinfo={})
+  qmp.HotAddNic(nic, "nic-abc", host_mtu=1400)
+
+  assert commands[-1] == ("device_add", {
+    "netdev": "nic-abc",
+    "mac": nic.mac,
+    "host_mtu": 1400,
+  })

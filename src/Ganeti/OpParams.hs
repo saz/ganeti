@@ -285,6 +285,7 @@ module Ganeti.OpParams
   , pNetworkMode
   , pNetworkLink
   , pNetworkVlan
+  , pNetworkMtu
   , pDryRun
   , pDebugLevel
   , pOpPriority
@@ -390,6 +391,7 @@ $(buildObject "INicParams" "inic"
   [ optionalField $ simpleField C.inicMac    [t| NonEmptyString |]
   , optionalField $ simpleField C.inicIp     [t| String         |]
   , optionalField $ simpleField C.inicMode   [t| NonEmptyString |]
+  , optionalField $ simpleField C.inicMtu    [t| JSValue        |]
   , optionalField $ simpleField C.inicLink   [t| NonEmptyString |]
   , optionalField $ simpleField C.inicName   [t| NonEmptyString |]
   , optionalField $ simpleField C.inicVlan   [t| String         |]
@@ -1876,6 +1878,12 @@ pNetworkVlan :: Field
 pNetworkVlan =
   withDoc "Network vlan when connecting to a group" .
   defaultField [| "" |] $ stringField "network_vlan"
+
+pNetworkMtu :: Field
+pNetworkMtu =
+  withDoc "MTU to advertise to bridged instance NICs" .
+  optionalField $
+  simpleField "network_mtu" [t| JSValue |]
 
 pEnabledDataCollectors :: Field
 pEnabledDataCollectors =

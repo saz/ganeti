@@ -345,12 +345,19 @@ class TestConfigRunner(unittest.TestCase):
     """Test the NIC's CheckParameterSyntax function"""
     mode = constants.NIC_MODE
     link = constants.NIC_LINK
+    mtu = constants.NIC_MTU
     m_bridged = constants.NIC_MODE_BRIDGED
     m_routed = constants.NIC_MODE_ROUTED
     CheckSyntax = objects.NIC.CheckParameterSyntax
 
     CheckSyntax(constants.NICC_DEFAULTS)
     CheckSyntax({mode: m_bridged, link: "br1"})
+    CheckSyntax({mode: m_bridged, link: "br1", mtu: "auto"})
+    CheckSyntax({mode: m_bridged, link: "br1", mtu: 9000})
+    self.assertRaises(errors.ConfigurationError, CheckSyntax,
+                      {mode: m_bridged, link: "br1", mtu: 67})
+    self.assertRaises(errors.ConfigurationError, CheckSyntax,
+                      {mode: m_bridged, link: "br1", mtu: 65521})
     CheckSyntax({mode: m_routed, link: "default"})
     self.assertRaises(errors.ConfigurationError,
                       CheckSyntax, {mode: "000invalid", link: "any"})

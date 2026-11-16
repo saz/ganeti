@@ -540,6 +540,13 @@ class NIC(ConfigObject):
         not nicparams[constants.NIC_LINK]):
       raise errors.ConfigurationError("Missing bridged NIC link")
 
+    mtu = nicparams.get(constants.NIC_MTU)
+    if mtu is not None and mtu != constants.VALUE_AUTO:
+      if not constants.NIC_MTU_MIN <= mtu <= constants.NIC_MTU_MAX:
+        raise errors.ConfigurationError(
+          "NIC MTU must be between %s and %s" %
+          (constants.NIC_MTU_MIN, constants.NIC_MTU_MAX))
+
 
 class Filter(ConfigObject):
   """Config object representing a filter rule."""

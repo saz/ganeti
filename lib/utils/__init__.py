@@ -88,8 +88,9 @@ def ForceDictType(target, key_types, allowed_values=None):
   @type key_types: dict
   @param key_types: dict mapping target dict keys to types
                     in constants.ENFORCEABLE_TYPES
-  @type allowed_values: list
-  @keyword allowed_values: list of specially allowed values
+  @type allowed_values: list or dict
+  @keyword allowed_values: list of specially allowed values or a dictionary
+                           mapping keys to such lists
 
   """
   if allowed_values is None:
@@ -104,7 +105,10 @@ def ForceDictType(target, key_types, allowed_values=None):
       msg = "Unknown parameter '%s'" % key
       raise errors.TypeEnforcementError(msg)
 
-    if target[key] in allowed_values:
+    key_allowed_values = (allowed_values.get(key, [])
+                          if isinstance(allowed_values, dict)
+                          else allowed_values)
+    if target[key] in key_allowed_values:
       continue
 
     ktype = key_types[key]

@@ -27,6 +27,7 @@
 # NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from types import SimpleNamespace
 from unittest import mock
 
 import pytest
@@ -41,6 +42,30 @@ from ganeti.hypervisor.hv_kvm.bus_manager import (
 from ganeti.hypervisor.hv_kvm.validation import (
   is_q35, validate_q35_capability,
 )
+
+
+class TestNICHostMtu:
+  def _nic(self, mtu, mode=constants.NIC_MODE_BRIDGED):
+    return SimpleNamespace(
+      mac="aa:00:00:00:00:01",
+      nicparams={constants.NIC_MODE: mode,
+                 constants.NIC_LINK: "br0",
+                 constants.NIC_MTU: mtu},
+    )
+
+  def test_explicit_value(self):
+    nic = self._nic(9000)
+    assert hv_kvm._GetNICHostMtu(nic, "virtio-net-pci") == 9000
+
+  def test_auto_reads_bridge_mtu(self, monkeypatch):
+    nic = self._nic(constants.VALUE_AUTO)
+    monkeypatch.setattr(hv_kvm.utils, "ReadOneLineFile",
+                        lambda *_args, **_kwargs: "1400")
+    assert hv_kvm._GetNICHostMtu(nic, "virtio-net-pci") == 1400
+
+  def test_ignores_non_bridged_nic(self):
+    nic = self._nic(9000, mode=constants.NIC_MODE_ROUTED)
+    assert hv_kvm._GetNICHostMtu(nic, "e1000") is None
 
 
 # `kvm -machine ?` output from QEMU 10.2 - used by the capability check

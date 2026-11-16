@@ -324,6 +324,33 @@ def _GenerateDeviceHVInfoStr(hvinfo):
   return hvinfo_str
 
 
+def _GetNICHostMtu(nic, device_model):
+  """Return the configured host MTU for a bridged NIC, if any."""
+  mtu = nic.nicparams.get(constants.NIC_MTU)
+  if (mtu is None or
+      nic.nicparams[constants.NIC_MODE] != constants.NIC_MODE_BRIDGED):
+    return None
+
+  if not device_model.startswith("virtio-net-"):
+    raise errors.HypervisorError(
+      "Configured NIC MTU requires a virtio-net device model")
+
+  if mtu == constants.VALUE_AUTO:
+    bridge = nic.nicparams[constants.NIC_LINK]
+    mtu_path = "/sys/class/net/%s/mtu" % bridge
+    try:
+      mtu = int(utils.ReadOneLineFile(mtu_path, strict=True))
+    except (EnvironmentError, ValueError) as err:
+      raise errors.HypervisorError(
+        "Failed to determine MTU for bridge %s: %s" % (bridge, err))
+
+  if not constants.NIC_MTU_MIN <= mtu <= constants.NIC_MTU_MAX:
+    raise errors.HypervisorError(
+      "Invalid MTU %s for NIC %s (expected %s..%s)" %
+      (mtu, nic.mac, constants.NIC_MTU_MIN, constants.NIC_MTU_MAX))
+  return mtu
+
+
 def _GenerateDeviceHVInfo(dev_type, kvm_devid, hv_dev_type,
                           allocation: BusAllocation):
   """Helper function to generate hvinfo of a device (disk, NIC)
@@ -2154,6 +2181,10 @@ class KVMHypervisor(hv_base.BaseHypervisor):
       nic_model = features["driver"]
       kvm_supports_netdev = self._NETDEV_RE.search(kvmhelp)
       for nic_seq, nic in enumerate(kvm_nics):
+        device_model = nic.hvinfo.get("driver", nic_model)
+        mtu = _GetNICHostMtu(nic, device_model)
+        mtu_is_active = mtu is not None
+
         tapname, nic_tapfds, nic_vhostfds = \
           OpenTap(features=features, name=self._GenerateKvmTapName(nic))
 
@@ -2181,6 +2212,9 @@ class KVMHypervisor(hv_base.BaseHypervisor):
             nic_val = "%s" % nic_model
             netdev = "netdev%d" % nic_seq
 
+          if mtu_is_active:
+            nic_val += ",host_mtu=%s" % mtu
+
           nic_val += (",netdev=%s,mac=%s%s" % (netdev, nic.mac, nic_extra))
           tap_val = ("type=tap,id=%s,%s%s%s" %
                      (netdev, tapfd, vhostfd, tap_extra))
@@ -2193,6 +2227,9 @@ class KVMHypervisor(hv_base.BaseHypervisor):
 
           kvm_cmd.extend(["-netdev", tap_val, "-device", ','.join(dev_opts)])
         else:
+          if mtu_is_active:
+            raise errors.HypervisorError(
+              "Configured NIC MTU requires QEMU -device support")
           nic_val = "nic,vlan=%s,macaddr=%s,model=%s" % (nic_seq,
                                                          nic.mac, nic_model)
           tap_val = "tap,vlan=%s,%s" % (nic_seq, tapfd)
@@ -2585,8 +2622,9 @@ class KVMHypervisor(hv_base.BaseHypervisor):
       (tap, tapfds, vhostfds) = OpenTap(features=features)
       try:
         self._ConfigureNIC(instance, seq, device, tap)
+        host_mtu = _GetNICHostMtu(device, features["driver"])
         self.qmp.HotAddNic(device, kvm_devid, tapfds, vhostfds, features,
-                           is_chrooted)
+                           is_chrooted, host_mtu=host_mtu)
         utils.WriteFile(self._InstanceNICFile(instance.name, seq), data=tap)
       finally:
         # Close tap file descriptors after passing them to QEMU via SCM_RIGHTS.

@@ -2546,6 +2546,15 @@ nicLink = "link"
 nicMode :: String
 nicMode = "mode"
 
+nicMtu :: String
+nicMtu = "mtu"
+
+nicMtuMin :: Int
+nicMtuMin = 68
+
+nicMtuMax :: Int
+nicMtuMax = 65520
+
 nicVlan :: String
 nicVlan = "vlan"
 
@@ -2553,6 +2562,7 @@ nicsParameterTypes :: Map String VType
 nicsParameterTypes =
   Map.fromList [(nicMode, vtypeString),
                 (nicLink, vtypeString),
+                (nicMtu, vtypeIntOrAuto),
                 (nicVlan, vtypeString)]
 
 nicsParameters :: FrozenSet String
@@ -2657,6 +2667,9 @@ inicMac = "mac"
 inicMode :: String
 inicMode = "mode"
 
+inicMtu :: String
+inicMtu = "mtu"
+
 inicName :: String
 inicName = "name"
 
@@ -2673,6 +2686,7 @@ inicParamsTypes =
                 (inicLink, VTypeString),
                 (inicMac, VTypeString),
                 (inicMode, VTypeString),
+                (inicMtu, VTypeIntOrAuto),
                 (inicName, VTypeMaybeString),
                 (inicNetwork, VTypeMaybeString),
                 (inicVlan, VTypeMaybeString)]

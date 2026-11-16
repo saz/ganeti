@@ -134,6 +134,8 @@ def ConnectNetwork(opts, args):
                                   network_mode=nicparams[constants.NIC_MODE],
                                   network_link=nicparams[constants.NIC_LINK],
                                   network_vlan=nicparams[constants.NIC_VLAN],
+                                  network_mtu=nicparams.get(
+                                    constants.NIC_MTU),
                                   conflicts_check=opts.conflicts_check)
     SubmitOpCode(op, opts=opts, cl=cl)
 

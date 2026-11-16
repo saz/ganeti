@@ -57,6 +57,16 @@ Parameters:
   the notation used by ``gnt-instance``; see `VLAN parameter format`_
   for details.
 
+``mtu`` (optional)
+  MTU advertised to a KVM virtio NIC in the guest. This parameter can be
+  configured on the cluster, network, or individual NIC; a NIC value takes
+  precedence over a network value, which takes precedence over the cluster
+  value. It is unset by default, in which case Ganeti does not pass an MTU to
+  QEMU. ``auto`` uses the MTU of the bridge named by ``link`` when the
+  instance starts. An integer sets the MTU explicitly and must be between 68
+  and 65520. Set ``none`` at a parameter level to remove its override and
+  inherit from the next level. MTU settings apply only to bridged NICs.
+
 The ``up`` script fixes the TAP device MAC address (setting the first
 octet to ``fe`` to discourage the bridge from adopting it), brings the
 interface up, matches its MTU to the bridge and adds it as a bridge

@@ -38,6 +38,7 @@ from ganeti import objects
 from ganeti import utils
 from ganeti.cmdlib.base import LogicalUnit
 from ganeti.cmdlib.common import CheckNodeGroupInstances
+from ganeti.cmdlib.instance_utils import CheckNICMTUMode
 
 
 def _BuildNetworkHookEnv(name, subnet, gateway, network6, gateway6,
@@ -579,8 +580,15 @@ class LUNetworkConnect(LogicalUnit):
       constants.NIC_LINK: self.network_link,
       constants.NIC_VLAN: self.network_vlan,
       }
+    self.clear_mtu = self.op.network_mtu == constants.VALUE_NONE
+    if self.op.network_mtu is not None and not self.clear_mtu:
+      self.netparams[constants.NIC_MTU] = self.op.network_mtu
+      utils.ForceDictType(self.netparams, constants.NICS_PARAMETER_TYPES)
 
     objects.NIC.CheckParameterSyntax(self.netparams)
+    if not self.clear_mtu:
+      CheckNICMTUMode(self.network_mode,
+                      self.netparams.get(constants.NIC_MTU))
 
     self.group = self.cfg.GetNodeGroup(self.group_uuid)
     #if self.network_mode == constants.NIC_MODE_BRIDGED:
@@ -601,7 +609,9 @@ class LUNetworkConnect(LogicalUnit):
          self.cfg.GetMultiInstanceInfoByName(owned_instance_names)])
 
   def Exec(self, feedback_fn):
-    # Connect the network and update the group only if not already connected
+    if self.connected and self.clear_mtu:
+      self.group.networks[self.network_uuid].pop(constants.NIC_MTU, None)
+      self.cfg.Update(self.group, feedback_fn)
     if not self.connected:
       self.group.networks[self.network_uuid] = self.netparams
       self.cfg.Update(self.group, feedback_fn)
